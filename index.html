@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Calculator</title>
+  <style>
+    * {margin:0; padding:0; box-sizing:border-box; font-family:"Poppins",sans-serif;}
+    body {
+      min-height:100vh; display:flex; justify-content:center; align-items:center; padding:15px;
+      background:linear-gradient(135deg,#2b5876,#4e4376);
+    }
+    .calculator {
+      width:100%; max-width:500px;
+      background:rgba(255,255,255,0.12);
+      backdrop-filter:blur(14px);
+      border-radius:24px;
+      padding:25px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.35);
+      color:#fff;
+      animation:fadeIn 0.7s ease-in-out;
+    }
+    @keyframes fadeIn {from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);}}
+    h2 {
+      text-align:center; margin-bottom:20px;
+      font-size:28px; font-weight:700; color:#fff;
+      text-shadow:0 2px 6px rgba(0,0,0,0.4);
+    }
+    label {display:block; margin:10px 0 6px; font-weight:600;}
+    input {
+      width:100%; padding:14px; border-radius:14px;
+      border:none; outline:none;
+      margin-bottom:14px; font-size:15px;
+      background:rgba(255,255,255,0.18);
+      color:#fff; box-shadow:inset 2px 2px 6px rgba(0,0,0,0.4), inset -2px -2px 6px rgba(255,255,255,0.1);
+    }
+    input::placeholder {color:#ddd;}
+    button {
+      width:100%; padding:14px; border:none; border-radius:14px;
+      background:linear-gradient(135deg,#ff6a00,#ee0979);
+      color:#fff; font-size:17px; font-weight:600; cursor:pointer;
+      box-shadow:0 6px 15px rgba(0,0,0,0.4);
+      transition:transform 0.25s, box-shadow 0.25s;
+    }
+    button:hover {transform:translateY(-2px) scale(1.03); box-shadow:0 8px 20px rgba(0,0,0,0.5);}
+    .results {
+      margin-top:20px; background:rgba(0,0,0,0.3);
+      padding:15px; border-radius:16px;
+      animation:slideUp 0.5s ease-in-out;
+    }
+    .results p {margin:6px 0; font-size:16px;}
+    @keyframes slideUp {from{opacity:0; transform:translateY(15px);} to{opacity:1; transform:translateY(0);}}
+    .table-container {
+      margin-top:20px; max-height:280px; overflow-y:auto;
+      border-radius:16px; border:1px solid rgba(255,255,255,0.25);
+      animation:slideUp 0.8s ease-in-out;
+    }
+    table {width:100%; border-collapse:collapse; font-size:14px; color:#fff;}
+    th, td {padding:10px; text-align:center;}
+    th {
+      background:rgba(0,0,0,0.6);
+      position:sticky; top:0; font-size:15px;
+    }
+    tr:nth-child(even) {background:rgba(255,255,255,0.08);}
+    /* Floating export buttons */
+    .export-buttons {
+      display:flex; gap:10px; margin-top:15px; justify-content:center;
+    }
+    .export-buttons button {
+      flex:1; font-size:14px; padding:12px;
+      border:none; border-radius:50px;
+      background:linear-gradient(135deg,#11998e,#38ef7d);
+      box-shadow:0 6px 12px rgba(0,0,0,0.4);
+      cursor:pointer; font-weight:600;
+      transition:0.25s;
+    }
+    .export-buttons button:hover {
+      transform:translateY(-2px);
+      box-shadow:0 8px 16px rgba(0,0,0,0.5);
+    }
+    /* Mobile */
+    @media(max-width:520px){
+      h2{font-size:23px;}
+      input, button{font-size:14px; padding:12px;}
+      th,td{font-size:12px; padding:6px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <h2>Loan Calculator</h2>
+    <label for="amount">Loan Amount (PKR)</label>
+    <input type="number" id="amount" placeholder="Enter amount" required>
+
+    <label for="interest">Interest Rate (%)</label>
+    <input type="number" id="interest" placeholder="Enter rate" required>
+
+    <label for="years">Term (Years)</label>
+    <input type="number" id="years" placeholder="Enter years" required>
+
+    <button onclick="calculateLoan()">Calculate</button>
+
+    <div class="results" id="results" style="display:none;">
+      <p><strong>Monthly Payment:</strong> <span id="monthly"></span></p>
+      <p><strong>Total Payment:</strong> <span id="total"></span></p>
+      <p><strong>Total Interest:</strong> <span id="interestTotal"></span></p>
+    </div>
+
+    <div class="table-container" id="amortization" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Principal</th>
+            <th>Interest</th>
+            <th>Balance</th>
+          </tr>
+        </thead>
+        <tbody id="amortBody"></tbody>
+      </table>
+    </div>
+
+    <div class="export-buttons" id="exportBtns" style="display:none;">
+      <button onclick="exportExcel()">📊 Excel</button>
+      <button onclick="exportPDF()">📄 PDF</button>
+    </div>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    function calculateLoan() {
+      const amount = document.getElementById('amount').value;
+      const interest = document.getElementById('interest').value;
+      const years = document.getElementById('years').value;
+
+      if (!amount || !interest || !years) { alert("Please fill all fields!"); return; }
+
+      const principal = parseFloat(amount);
+      const monthlyInterest = parseFloat(interest)/100/12;
+      const payments = parseFloat(years)*12;
+
+      const x = Math.pow(1+monthlyInterest, payments);
+      const monthly = (principal*x*monthlyInterest)/(x-1);
+
+      if (isFinite(monthly)) {
+        document.getElementById('monthly').textContent = monthly.toFixed(2)+" PKR";
+        document.getElementById('total').textContent = (monthly*payments).toFixed(2)+" PKR";
+        document.getElementById('interestTotal').textContent = ((monthly*payments)-principal).toFixed(2)+" PKR";
+        document.getElementById('results').style.display="block";
+
+        // Amortization Table
+        let balance = principal;
+        const amortBody = document.getElementById('amortBody');
+        amortBody.innerHTML = "";
+        for(let i=1; i<=payments; i++){
+          const interestPayment = balance*monthlyInterest;
+          const principalPayment = monthly-interestPayment;
+          balance -= principalPayment;
+          const row = `<tr>
+                        <td>${i}</td>
+                        <td>${principalPayment.toFixed(2)}</td>
+                        <td>${interestPayment.toFixed(2)}</td>
+                        <td>${balance>0?balance.toFixed(2):"0.00"}</td>
+                      </tr>`;
+          amortBody.innerHTML += row;
+        }
+        document.getElementById('amortization').style.display="block";
+        document.getElementById('exportBtns').style.display="flex";
+      } else { alert("Please check inputs!"); }
+    }
+
+    // Export Excel
+    function exportExcel(){
+      const table = document.getElementById("amortization").querySelector("table");
+      const wb = XLSX.utils.table_to_book(table, {sheet:"Amortization"});
+      XLSX.writeFile(wb, "Amortization.xlsx");
+    }
+    // Export PDF
+    async function exportPDF(){
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Loan Amortization Schedule", 14, 15);
+      const table = document.querySelector("table");
+      let data = [];
+      table.querySelectorAll("tr").forEach((row)=>{
+        let rowData = [];
+        row.querySelectorAll("th,td").forEach(cell=>rowData.push(cell.innerText));
+        data.push(rowData);
+      });
+      doc.autoTable({ head:[data[0]], body:data.slice(1), startY:20 });
+      doc.save("Amortization.pdf");
+    }
+  </script>
+</body>
+</html>
